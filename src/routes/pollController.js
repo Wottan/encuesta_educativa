@@ -10,19 +10,21 @@ router.get('/listPoll', isLoggedIn, async (req, res) => {
   let listPoll;
   let data = {};
   var query = url.parse(req.url, true).query;
-  if (undefined == query.filtrar){
-     listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ?', [req.user.id]);
-  }else{
-    listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ? AND poll LIKE ?', [req.user.id,'%' +query.filtrar+ '%']);
+  if (undefined == query.filtrar) {
+    listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ?', [req.user.id]);
+  } else {
+    //Ahora el filtro es por id de Polls
+    listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ? AND id = ?', [req.user.id, query.filtrar]);
+    // listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ? AND poll LIKE ?', [req.user.id, '%' + query.filtrar + '%']);
   }
-  if (0 < listPoll.length){
+  if (0 < listPoll.length) {
     data = paginator(listPoll, req.query.pagina, 1, "/listPoll", "http://localhost:8080");
-  }else{
+  } else {
     data = {
       pagi_info: "No hay datos que mostrar",
     };
   }
- 
+
   res.render('poll/listPoll', { data });
 });
 
@@ -32,7 +34,7 @@ router.get('/createPoll', isLoggedIn, async (req, res) => {
 });
 
 router.post('/createPoll', isLoggedIn, async (req, res) => {
-  //console.log(req.body);
+  console.log(req.body);
   const { poll, response } = req.body;
   let responses = response.length;
   let polls = {
@@ -73,6 +75,7 @@ router.post('/createPoll', isLoggedIn, async (req, res) => {
           });
         }
         console.log('Transaction Complete.');
+        //res.render("poll/creaatePoll", { codigo: result.insertId });
         res.redirect('/listPoll');
       });
     });
@@ -100,31 +103,31 @@ router.get('/details', async (req, res) => {
   responses = JSON.parse(responses);
   console.log(responses);
   var data = listPoll[0];
-  res.render('poll/details',{data,responses,votes});
+  res.render('poll/details', { data, responses, votes });
 });
 var responses;
 var poll;
 var poll_id;
-router.get('/votes', isLoggedIn, async (req, res) =>{
+router.get('/votes', isLoggedIn, async (req, res) => {
   var query = url.parse(req.url, true).query;
   poll_id = query.id;
   responses = await pool.query("SELECT * FROM responses WHERE polls_id =?", [query.id]);
-  let inscription = await pool.query("SELECT * FROM inscriptions WHERE poll_id =? AND user_id =?", [poll_id,req.user.id]);
-  let value  = true;
-  if (0 < inscription.length){
-    value  = false;
+  let inscription = await pool.query("SELECT * FROM inscriptions WHERE poll_id =? AND user_id =?", [poll_id, req.user.id]);
+  let value = true;
+  if (0 < inscription.length) {
+    value = false;
   }
   console.log(responses);
   poll = query.poll;
-  res.render('poll/votes',{responses,poll,value});  
+  res.render('poll/votes', { responses, poll, value });
 });
-router.post('/votes',[
+router.post('/votes', [
   check('response').not().isEmpty().withMessage('Select one of the options')
-], isLoggedIn, async (req, res) =>{
+], isLoggedIn, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    res.render('poll/votes', {responses,poll,errors:  errors.array() });
-  }else{
+    res.render('poll/votes', { responses, poll, errors: errors.array() });
+  } else {
     const { response } = req.body;
     let responses = await pool.query("SELECT * FROM responses WHERE id =?", [response]);
     let vote = responses[0].votes;
@@ -132,9 +135,9 @@ router.post('/votes',[
     vote++;
     let response_id = parseInt(response, 10);
     let data = [vote, response_id];
-    await pool.beginTransaction((err) =>{
-      pool.query('UPDATE responses SET votes = ? WHERE id =?', data, (err, result)=> {
-        if (err) { 
+    await pool.beginTransaction((err) => {
+      pool.query('UPDATE responses SET votes = ? WHERE id =?', data, (err, result) => {
+        if (err) {
           pool.rollback(() => {
             throw err;
           });
@@ -145,14 +148,14 @@ router.post('/votes',[
           response: respon,
           response_id: response_id,
           date: new Date()
-        }; 
+        };
         pool.query('INSERT INTO inscriptions SET ?', res, (err, result) => {
           if (err) {
             pool.rollback(() => {
               throw err;
             });
           }
-        }); 
+        });
       });
       pool.commit((err) => {
         if (err) {
@@ -167,25 +170,25 @@ router.post('/votes',[
   console.log(req.body);
 
 });
-router.get('/delete/:id', async (req, res) =>{
+router.get('/delete/:id', async (req, res) => {
   const { id } = req.params;
-  await pool.beginTransaction((err) =>{
+  await pool.beginTransaction((err) => {
     if (err) { throw err; }
     pool.query('DELETE FROM responses WHERE polls_id = ?', [id], (err, result) => {
-      if (err){
+      if (err) {
         pool.rollback(() => {
           throw err;
         });
       }
-      pool.query('DELETE FROM polls WHERE id = ?', [id], (err, result) =>{
-        if (err){
+      pool.query('DELETE FROM polls WHERE id = ?', [id], (err, result) => {
+        if (err) {
           pool.rollback(() => {
             throw err;
           });
         }
       });
-      pool.commit((err) =>{
-        if (err){
+      pool.commit((err) => {
+        if (err) {
           pool.rollback(() => {
             throw err;
           });
