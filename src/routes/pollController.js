@@ -15,7 +15,6 @@ router.get('/listPoll', isLoggedIn, async (req, res) => {
   } else {
     //Ahora el filtro es por id de Polls
     listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ? AND id = ?', [req.user.id, query.filtrar]);
-    // listPoll = await pool.query('SELECT * FROM polls WHERE user_id = ? AND poll LIKE ?', [req.user.id, '%' + query.filtrar + '%']);
   }
   if (0 < listPoll.length) {
     data = paginator(listPoll, req.query.pagina, 1, "/listPoll", "http://localhost:8080");
@@ -24,7 +23,6 @@ router.get('/listPoll', isLoggedIn, async (req, res) => {
       pagi_info: "No hay datos que mostrar",
     };
   }
-
   res.render('poll/listPoll', { data });
 });
 
